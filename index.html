@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Suspicious Email & Link Checker</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --accent: #00d084;
+      --accent-dim: #00d08420;
+      --danger: #f85149;
+      --danger-dim: #f8514920;
+      --warn: #e3b341;
+      --warn-dim: #e3b34120;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --font: 'Space Grotesk', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      width: 100%;
+      max-width: 640px;
+      margin-bottom: 20px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: vertical;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .api-note {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .api-note a { color: var(--accent); text-decoration: none; }
+
+    .input-group { margin-bottom: 16px; }
+
+    .btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #0d1117;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn:hover { opacity: 0.88; }
+    .btn:active { transform: scale(0.99); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Result card */
+    .result {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 640px;
+      margin-bottom: 20px;
+    }
+
+    .result.show { display: block; }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .verdict-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .verdict-icon.safe { background: var(--accent-dim); }
+    .verdict-icon.danger { background: var(--danger-dim); }
+    .verdict-icon.warn { background: var(--warn-dim); }
+
+    .verdict-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .verdict-title.safe { color: var(--accent); }
+    .verdict-title.danger { color: var(--danger); }
+    .verdict-title.warn { color: var(--warn); }
+
+    .verdict-sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .stat-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: var(--mono);
+      font-size: 1.5rem;
+      font-weight: 600;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .stat-num.danger { color: var(--danger); }
+    .stat-num.warn { color: var(--warn); }
+    .stat-num.safe { color: var(--accent); }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { color: var(--muted); }
+    .detail-val { font-family: var(--mono); font-size: 0.8rem; color: var(--text); word-break: break-all; text-align: right; max-width: 65%; }
+
+    .loader {
+      display: none;
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .loader.show { display: block; }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      display: none;
+      background: var(--danger-dim);
+      border: 1px solid var(--danger);
+      border-radius: 8px;
+      padding: 14px 16px;
+      color: var(--danger);
+      font-size: 0.85rem;
+      margin-top: 14px;
+    }
+
+    .error-box.show { display: block; }
+
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge">🛡️ Security Tool</div>
+  <h1>Suspicious <span>Email & Link</span> Checker</h1>
+  <p class="subtitle">Scan URLs and email addresses against VirusTotal's threat intelligence database in real time.</p>
+</header>
+
+<div class="card">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('url')">🔗 Check URL / Link</button>
+    <button class="tab" onclick="switchTab('email')">📧 Check Email Address</button>
+  </div>
+
+  <!-- URL Input -->
+  <div id="url-section">
+    <div class="input-group">
+      <label>ENTER URL TO SCAN</label>
+      <input type="text" id="url-input" placeholder="https://example.com or suspicious-site.com" />
+    </div>
+  </div>
+
+  <!-- Email Input -->
+  <div id="email-section" style="display:none">
+    <div class="input-group">
+      <label>ENTER EMAIL ADDRESS</label>
+      <input type="text" id="email-input" placeholder="user@domain.com" />
+    </div>
+    <div class="input-group">
+      <label>EMAIL BODY (OPTIONAL — paste suspicious content)</label>
+      <textarea id="email-body" rows="4" placeholder="Paste email body here to extract and scan any links inside..."></textarea>
+    </div>
+  </div>
+
+  <div class="input-group">
+    <label>VIRUSTOTAL API KEY</label>
+    <input type="password" id="api-key" placeholder="Enter your free VirusTotal API key" />
+    <p class="api-note">Get a free key at <a href="https://www.virustotal.com/gui/join-us" target="_blank">virustotal.com</a> — no credit card needed.</p>
+  </div>
+
+  <button class="btn" id="scan-btn" onclick="runScan()">🔍 Scan Now</button>
+  <div class="error-box" id="error-box"></div>
+</div>
+
+<div class="loader" id="loader">
+  <div class="spinner"></div>
+  Scanning with VirusTotal — this may take a few seconds...
+</div>
+
+<div class="result" id="result-card">
+  <div class="result-header">
+    <div class="verdict-icon" id="verdict-icon"></div>
+    <div>
+      <div class="verdict-title" id="verdict-title"></div>
+      <div class="verdict-sub" id="verdict-sub"></div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="stat-num danger" id="stat-malicious">—</div>
+      <div class="stat-label">Malicious</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num warn" id="stat-suspicious">—</div>
+      <div class="stat-label">Suspicious</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num safe" id="stat-clean">—</div>
+      <div class="stat-label">Clean</div>
+    </div>
+  </div>
+
+  <p class="section-title">Scan Details</p>
+  <div id="detail-rows"></div>
+</div>
+
+<footer>
+  Powered by <a href="https://www.virustotal.com" target="_blank">VirusTotal API</a> · Built by Anshika Yadav
+</footer>
+
+<script>
+  let currentTab = 'url';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('url-section').style.display = tab === 'url' ? 'block' : 'none';
+    document.getElementById('email-section').style.display = tab === 'email' ? 'block' : 'none';
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (tab === 'url' && i === 0) || (tab === 'email' && i === 1));
+    });
+    hideResults();
+  }
+
+  function hideResults() {
+    document.getElementById('result-card').classList.remove('show');
+    document.getElementById('error-box').classList.remove('show');
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('error-box');
+    box.textContent = '⚠️ ' + msg;
+    box.classList.add('show');
+    document.getElementById('loader').classList.remove('show');
+  }
+
+  function extractUrlsFromText(text) {
+    const regex = /https?:\/\/[^\s"'<>]+/gi;
+    return [...new Set(text.match(regex) || [])];
+  }
+
+  async function runScan() {
+    hideResults();
+    const apiKey = document.getElementById('api-key').value.trim();
+    if (!apiKey) return showError('Please enter your VirusTotal API key.');
+
+    let target = '';
+    let scanType = 'url';
+
+    if (currentTab === 'url') {
+      target = document.getElementById('url-input').value.trim();
+      if (!target) return showError('Please enter a URL to scan.');
+      if (!target.startsWith('http')) target = 'https://' + target;
+    } else {
+      const email = document.getElementById('email-input').value.trim();
+      const body = document.getElementById('email-body').value.trim();
+
+      if (!email && !body) return showError('Please enter an email address or paste the email body.');
+
+      if (body) {
+        const urls = extractUrlsFromText(body);
+        if (urls.length > 0) {
+          target = urls[0];
+          scanType = 'url';
+        } else if (email) {
+          // scan the email domain
+          const domain = email.split('@')[1];
+          if (!domain) return showError('Invalid email address.');
+          target = 'https://' + domain;
+          scanType = 'domain';
+        }
+      } else {
+        const domain = email.split('@')[1];
+        if (!domain) return showError('Invalid email address.');
+        target = 'https://' + domain;
+        scanType = 'domain';
+      }
+    }
+
+    document.getElementById('loader').classList.add('show');
+    document.getElementById('scan-btn').disabled = true;
+
+    try {
+      // Step 1: Submit for analysis
+      const encoded = btoa(target).replace(/=+$/, '');
+      const checkRes = await fetch(`https://www.virustotal.com/api/v3/urls/${encoded}`, {
+        headers: { 'x-apikey': apiKey }
+      });
+
+      let data;
+
+      if (checkRes.status === 404) {
+        // Not in cache — submit for fresh scan
+        const formData = new URLSearchParams();
+        formData.append('url', target);
+
+        const submitRes = await fetch('https://www.virustotal.com/api/v3/urls', {
+          method: 'POST',
+          headers: {
+            'x-apikey': apiKey,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: formData.toString()
+        });
+
+        if (!submitRes.ok) {
+          const err = await submitRes.json();
+          throw new Error(err.error?.message || 'Submission failed. Check your API key.');
+        }
+
+        const submitData = await submitRes.json();
+        const analysisId = submitData.data?.id;
+
+        // Poll for result
+        await new Promise(r => setTimeout(r, 5000));
+        const pollRes = await fetch(`https://www.virustotal.com/api/v3/analyses/${analysisId}`, {
+          headers: { 'x-apikey': apiKey }
+        });
+        const pollData = await pollRes.json();
+        displayResult(pollData.data?.attributes?.stats, target, pollData.data?.attributes?.date);
+      } else if (checkRes.ok) {
+        data = await checkRes.json();
+        const stats = data.data?.attributes?.last_analysis_stats;
+        const date = data.data?.attributes?.last_analysis_date;
+        displayResult(stats, target, date);
+      } else {
+        const err = await checkRes.json();
+        throw new Error(err.error?.message || 'API error. Check your API key.');
+      }
+
+    } catch (e) {
+      showError(e.message || 'Something went wrong. Check your API key and try again.');
+    }
+
+    document.getElementById('scan-btn').disabled = false;
+    document.getElementById('loader').classList.remove('show');
+  }
+
+  function displayResult(stats, target, dateTs) {
+    if (!stats) return showError('Could not retrieve scan stats. Try again.');
+
+    const malicious = stats.malicious || 0;
+    const suspicious = stats.suspicious || 0;
+    const clean = (stats.harmless || 0) + (stats.undetected || 0);
+    const total = malicious + suspicious + clean + (stats.timeout || 0);
+
+    document.getElementById('stat-malicious').textContent = malicious;
+    document.getElementById('stat-suspicious').textContent = suspicious;
+    document.getElementById('stat-clean').textContent = clean;
+
+    const icon = document.getElementById('verdict-icon');
+    const title = document.getElementById('verdict-title');
+    const sub = document.getElementById('verdict-sub');
+
+    if (malicious > 0) {
+      icon.textContent = '🚨'; icon.className = 'verdict-icon danger';
+      title.textContent = 'Malicious Detected'; title.className = 'verdict-title danger';
+      sub.textContent = `${malicious} of ${total} security vendors flagged this as malicious.`;
+    } else if (suspicious > 0) {
+      icon.textContent = '⚠️'; icon.className = 'verdict-icon warn';
+      title.textContent = 'Suspicious'; title.className = 'verdict-title warn';
+      sub.textContent = `${suspicious} vendors flagged this as suspicious. Proceed with caution.`;
+    } else {
+      icon.textContent = '✅'; icon.className = 'verdict-icon safe';
+      title.textContent = 'No Threats Found'; title.className = 'verdict-title safe';
+      sub.textContent = `${clean} vendors scanned this and found no threats.`;
+    }
+
+    const date = dateTs ? new Date(dateTs * 1000).toLocaleString() : 'Just now';
+    const rows = [
+      ['Target', target],
+      ['Last Scanned', date],
+      ['Engines Queried', total],
+      ['Malicious', malicious],
+      ['Suspicious', suspicious],
+      ['Clean / Undetected', clean],
+    ];
+
+    document.getElementById('detail-rows').innerHTML = rows.map(([k, v]) =>
+      `<div class="detail-row"><span class="detail-key">${k}</span><span class="detail-val">${v}</span></div>`
+    ).join('');
+
+    document.getElementById('result-card').classList.add('show');
+  }
+</script>
+</body>
+</html>
